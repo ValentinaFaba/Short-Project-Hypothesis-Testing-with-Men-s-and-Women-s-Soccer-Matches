@@ -1,0 +1,69 @@
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+import pingouin
+from scipy.stats import mannwhitneyu
+woman_result = pd.read_csv("women_results.csv")
+men_result = pd.read_csv("men_results.csv")
+
+#EDA
+woman_result['date'] = pd.to_datetime(woman_result['date'])
+men_result['date'] = pd.to_datetime(men_result['date'])
+
+#Filtering data
+woman_subset = woman_result[(woman_result['tournament'] == 'FIFA World Cup') & (woman_result['date'] > '2002-01-01')]
+men_subset = men_result[(men_result['tournament'] == 'FIFA World Cup') & (men_result['date'] > '2002-01-01')]
+
+#Create labels for every row
+woman_subset['group'] = 'woman'
+men_subset['group'] = 'men'
+
+#Sum all scores for every group
+woman_subset['total_score'] = woman_subset['home_score'] + woman_subset['away_score']
+men_subset['total_score'] = men_subset['home_score'] + men_subset['away_score']
+
+#Visualize if the data is normally distributed
+woman_subset['total_score'].hist()
+plt.title('Distribution of Women Goals Score')
+plt.xlabel('Goals score')
+plt.ylabel('Frequency')
+plt.show()
+
+men_subset['total_score'].hist()
+plt.title('Distribution of Men Goals Score')
+plt.xlabel('Goals score')
+plt.ylabel('Frequency')
+plt.show()
+
+#Concat dataframes
+both = pd.concat([woman_subset, men_subset], axis = 0, ignore_index = True)
+
+#Test Perform right-tailed Wilcoxon-Mann-Whitney test with pingouin
+subset_pivot = both[['group', 'total_score']]
+new_both = subset_pivot.pivot(columns = 'group', values = 'total_score')
+second_test = pingouin.mwu(x = new_both['woman'], 
+                           y = new_both['men'], 
+                           alternative = 'greater')
+p_val = second_test['p-val'].values[0]
+#test
+if p_val < 0.1:
+    result = 'reject'
+else:
+    result = 'fail to reject'
+
+# Alternative SciPy solution: Perform right-tailed Wilcoxon-Mann-Whitney test with scipy
+u_stat, u_pvalue = mannwhitneyu(
+    woman_subset['total_score'],
+    men_subset['total_score'],
+    alternative = 'greater'
+)
+if u_pvalue < 0.1:
+    result = 'reject'
+else:
+    result = 'fail to reject'
+
+#Store result
+result_dict = {'p_val' : p_val,
+              'result' : result}
+print(result_dict)
